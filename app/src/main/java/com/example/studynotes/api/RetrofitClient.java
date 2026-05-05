@@ -5,12 +5,9 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
 
-    private static final String BASE_URL = "https://generativelanguage.googleapis.com/";
-
+    private static final String BASE_URL = "https://openrouter.ai/";
     private static Retrofit retrofit;
-
     public static Retrofit getClient() {
-
         if (retrofit == null) {
 
             retrofit = new Retrofit.Builder()
@@ -18,7 +15,6 @@ public class RetrofitClient {
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
         }
-
         return retrofit;
     }
 }

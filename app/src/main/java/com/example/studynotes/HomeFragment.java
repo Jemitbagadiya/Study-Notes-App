@@ -2,13 +2,12 @@ package com.example.studynotes;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.Toast;
-import android.view.inputmethod.InputMethodManager;
 
 import androidx.fragment.app.Fragment;
 
@@ -16,14 +15,13 @@ import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -41,7 +39,7 @@ public class HomeFragment extends Fragment {
     EditText etTopic;
     MaterialButton btnGenerate;
 
-    String API_KEY = "YOUR_OPENROUTER_API_KEY"; //API Key OpenRouter
+    String API_KEY = " "; //API Key OpenRouter
 
     public HomeFragment() {
     }
@@ -81,7 +79,6 @@ public class HomeFragment extends Fragment {
                                     );
 
             if (imm != null) {
-
                 imm.hideSoftInputFromWindow(
                         etTopic.getWindowToken(),
                         0
@@ -89,7 +86,7 @@ public class HomeFragment extends Fragment {
             }
 
             etTopic.clearFocus();
-
+            v.performClick();
             return false;
         });
 

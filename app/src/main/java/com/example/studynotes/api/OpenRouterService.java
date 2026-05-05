@@ -7,11 +7,11 @@ import retrofit2.http.Headers;
 import retrofit2.http.POST;
 import retrofit2.http.Query;
 
-public interface GeminiService {
+public interface OpenRouterService {
 
     @Headers("Content-Type: application/json")
-    @POST("v1beta/models/gemini-1.5-flash:generateContent")
-    Call<RequestBody> generateContent(
+    @POST("api/v1/chat/completions")
+    Call<RequestBody> generateNotes(
             @Query("key") String apiKey,
             @Body RequestBody body
     );

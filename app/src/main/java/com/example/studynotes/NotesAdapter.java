@@ -6,7 +6,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
@@ -86,76 +85,44 @@ public class NotesAdapter extends
             context.startActivity(intent);
         });
 
-        // 3 Dot Menu
-        holder.imgMore.setOnClickListener(v -> {
+        // Delete Notes
+        holder.btnDelete.setOnClickListener(v -> {
+            new AlertDialog.Builder(context)
+                    .setTitle("Delete Note")
+                    .setMessage("Are you sure you want to delete this note?")
+                    .setPositiveButton("Delete", (dialog, which) -> {
 
-            PopupMenu popupMenu =
-                    new PopupMenu(
-                            context,
-                            holder.imgMore,
-                            android.view.Gravity.END,
-                            0,
-                            R.style.PopupMenuStyle
-                    );
+                        FirebaseFirestore.getInstance()
+                                .collection("users")
+                                .document(
+                                        FirebaseAuth.getInstance()
+                                                .getCurrentUser()
+                                                .getUid()
+                                )
+                                .collection("notes")
+                                .document(model.getId())
+                                .delete();
 
-            popupMenu.getMenuInflater().inflate(
-                    R.menu.popup_note_menu,
-                    popupMenu.getMenu()
-            );
+                        int adapterPosition =
+                                holder.getBindingAdapterPosition();
 
-            popupMenu.setOnMenuItemClickListener(item -> {
+                        if (adapterPosition != RecyclerView.NO_POSITION) {
+                            list.remove(adapterPosition);
+                            notifyItemRemoved(adapterPosition);
+                            notifyItemRangeChanged(
+                                    adapterPosition,
+                                    list.size()
+                            );
+                        }
 
-                // Delete Note
-                if (item.getItemId() == R.id.menu_delete) {
-
-                    new AlertDialog.Builder(context)
-                            .setTitle("Delete Note")
-                            .setMessage("Are you sure you want to delete this note?")
-                            .setPositiveButton("Delete", (dialog, which) -> {
-
-                                FirebaseFirestore.getInstance()
-                                        .collection("users")
-                                        .document(
-                                                FirebaseAuth.getInstance()
-                                                        .getCurrentUser()
-                                                        .getUid()
-                                        )
-                                        .collection("notes")
-                                        .document(model.getId())
-                                        .delete();
-
-                                int adapterPosition =
-                                        holder.getBindingAdapterPosition();
-
-                                if (adapterPosition != RecyclerView.NO_POSITION) {
-
-                                    list.remove(adapterPosition);
-
-                                    notifyItemRemoved(adapterPosition);
-
-                                    notifyItemRangeChanged(
-                                            adapterPosition,
-                                            list.size()
-                                    );
-                                }
-
-                                Toast.makeText(
-                                        context,
-                                        "Note Deleted",
-                                        Toast.LENGTH_SHORT
-                                ).show();
-
-                            })
-                            .setNegativeButton("Cancel", null)
-                            .show();
-
-                    return true;
-                }
-
-                return false;
-            });
-
-            popupMenu.show();
+                        Toast.makeText(
+                                context,
+                                "Note Deleted",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
         });
     }
 
@@ -172,7 +139,7 @@ public class NotesAdapter extends
                 txtPreview,
                 txtDate;
 
-        ImageView imgMore;
+        ImageView btnDelete;
 
         CardView cardNote;
 
@@ -196,9 +163,9 @@ public class NotesAdapter extends
                             R.id.txtDate
                     );
 
-            imgMore =
+            btnDelete =
                     itemView.findViewById(
-                            R.id.imgMore
+                            R.id.btnDelete
                     );
 
             cardNote =
