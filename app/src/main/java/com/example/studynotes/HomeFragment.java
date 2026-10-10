@@ -39,7 +39,7 @@ public class HomeFragment extends Fragment {
     EditText etTopic;
     MaterialButton btnGenerate;
 
-    String API_KEY = " "; //API Key OpenRouter
+    String API_KEY = ""; //API Key Gimini
 
     public HomeFragment() {
     }
@@ -117,7 +117,12 @@ public class HomeFragment extends Fragment {
         try {
 
             OkHttpClient client =
-                    new OkHttpClient();
+                    new OkHttpClient.Builder()
+                            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                            .readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+                            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                            .callTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                            .build();
 
             JSONObject messageObject =
                     new JSONObject();
@@ -147,18 +152,40 @@ public class HomeFragment extends Fragment {
 
             messagesArray.put(messageObject);
 
-            JSONObject bodyObject =
-                    new JSONObject();
+            JSONObject textPart = new JSONObject();
 
-            bodyObject.put(
-                    "model",
-                    "deepseek/deepseek-chat"
+            textPart.put(
+                    "text",
+                    "Generate professional study notes for "
+                            + topic
+                            + ".\n\n"
+                            + "Format properly with headings.\n\n"
+                            + "Include:\n"
+                            + "1. Detailed Explanation\n"
+                            + "2. Important Points\n"
+                            + "3. 5 MCQs with answers\n"
+                            + "4. 10 Viva Questions with answers\n\n"
+                            + "Make notes easy to understand for students."
             );
 
-            bodyObject.put(
-                    "messages",
-                    messagesArray
-            );
+            JSONArray parts = new JSONArray();
+            parts.put(textPart);
+
+            JSONObject content = new JSONObject();
+            content.put("parts", parts);
+
+            JSONArray contents = new JSONArray();
+            contents.put(content);
+
+            JSONObject bodyObject = new JSONObject();
+            bodyObject.put("contents", contents);
+
+            JSONObject generationConfig = new JSONObject();
+
+            generationConfig.put("temperature", 0.7);
+            generationConfig.put("maxOutputTokens", 8192);
+
+            bodyObject.put("generationConfig", generationConfig);
 
             RequestBody body =
                     RequestBody.create(
@@ -170,11 +197,7 @@ public class HomeFragment extends Fragment {
 
             Request request =
                     new Request.Builder()
-                            .url("https://openrouter.ai/api/v1/chat/completions")
-                            .addHeader(
-                                    "Authorization",
-                                    "Bearer " + API_KEY
-                            )
+                            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + API_KEY)
                             .post(body)
                             .build();
 
@@ -223,21 +246,59 @@ public class HomeFragment extends Fragment {
                                                 responseBody
                                         );
 
-                                JSONArray choices =
-                                        jsonObject.getJSONArray(
-                                                "choices"
-                                        );
+                                // Check API error response
+                                if (!response.isSuccessful()) {
+                                    throw new Exception(
+                                            "API Error: HTTP " + response.code()
+                                    );
+                                }
 
-                                JSONObject message =
-                                        choices.getJSONObject(0)
-                                                .getJSONObject(
-                                                        "message"
-                                                );
+                                JSONArray candidates =
+                                        jsonObject.optJSONArray("candidates");
 
-                                String aiResult =
-                                        message.getString(
-                                                "content"
-                                        );
+                                if (candidates == null || candidates.length() == 0) {
+                                    JSONObject errorObject = jsonObject.optJSONObject("error");
+
+                                    throw new Exception(
+                                            errorObject != null
+                                                    ? errorObject.optString(
+                                                    "message",
+                                                    "No candidates returned"
+                                            )
+                                                    : "Gemini returned no candidates"
+                                    );
+                                }
+
+                                JSONObject candidate =
+                                        candidates.getJSONObject(0);
+
+                                JSONObject content =
+                                        candidate.getJSONObject("content");
+
+                                JSONArray parts =
+                                        content.getJSONArray("parts");
+
+                                StringBuilder resultBuilder = new StringBuilder();
+
+                                for (int i = 0; i < parts.length(); i++) {
+                                    JSONObject part = parts.getJSONObject(i);
+
+                                    String text = part.optString("text", "");
+
+                                    if (!text.isEmpty()) {
+                                        resultBuilder.append(text).append("\n");
+                                    }
+                                }
+
+                                String aiResult = resultBuilder.toString().trim();
+
+                                if (aiResult.isEmpty()) {
+                                    throw new Exception("Generated notes are empty");
+                                }
+
+                                if (aiResult.trim().isEmpty()) {
+                                    throw new Exception("Generated notes are empty");
+                                }
 
                                 if (getActivity() == null)
                                     return;
@@ -251,11 +312,29 @@ public class HomeFragment extends Fragment {
 
                                             btnGenerate.setEnabled(true);
 
+                                            // Open ResultActivity
                                             Intent intent =
                                                     new Intent(
                                                             getContext(),
                                                             ResultActivity.class
                                                     );
+
+                                            // Check whether user is logged in
+                                            if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+
+                                                intent.putExtra("result", aiResult);
+                                                intent.putExtra("topic", topic);
+
+                                                startActivity(intent);
+
+                                                Toast.makeText(
+                                                        getContext(),
+                                                        "Please login to save notes",
+                                                        Toast.LENGTH_LONG
+                                                ).show();
+
+                                                return;
+                                            }
 
                                             FirebaseFirestore firestore =
                                                     FirebaseFirestore.getInstance();
@@ -281,8 +360,8 @@ public class HomeFragment extends Fragment {
                                                     new HashMap<>();
 
                                             note.put("topic", topic);
-
                                             note.put("content", aiResult);
+
                                             note.put(
                                                     "date",
                                                     currentDate + "   " + currentTime
@@ -293,15 +372,35 @@ public class HomeFragment extends Fragment {
                                                     System.currentTimeMillis()
                                             );
 
+                                            // Save notes to Firebase
                                             firestore.collection("users")
                                                     .document(userId)
                                                     .collection("notes")
-                                                    .add(note);
+                                                    .add(note)
+                                                    .addOnSuccessListener(documentReference -> {
 
-                                            intent.putExtra(
-                                                    "result",
-                                                    aiResult
-                                            );
+                                                        if (getContext() != null) {
+                                                            Toast.makeText(
+                                                                    getContext(),
+                                                                    "Notes saved successfully",
+                                                                    Toast.LENGTH_SHORT
+                                                            ).show();
+                                                        }
+                                                    })
+                                                    .addOnFailureListener(e -> {
+
+                                                        if (getContext() != null) {
+                                                            Toast.makeText(
+                                                                    getContext(),
+                                                                    "Save failed: " + e.getMessage(),
+                                                                    Toast.LENGTH_LONG
+                                                            ).show();
+                                                        }
+                                                    });
+
+                                            // Pass generated notes to ResultActivity
+                                            intent.putExtra("result", aiResult);
+                                            intent.putExtra("topic", topic);
 
                                             startActivity(intent);
                                         });
@@ -313,6 +412,9 @@ public class HomeFragment extends Fragment {
 
                                 getActivity()
                                         .runOnUiThread(() -> {
+
+                                            btnGenerate.setText("Generate Notes");
+                                            btnGenerate.setEnabled(true);
 
                                             Toast.makeText(
                                                     getContext(),
